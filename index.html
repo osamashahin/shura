@@ -456,7 +456,7 @@ const HEAD_DEFAULT = "د. عبد الله بن سودي العنزي", COORD_DEF
 const SEMESTERS = ["الفصل الأول","الفصل الثاني","الفصل الصيفي"];
 const M_STATUS = {draft:"مسودة",submitted:"بانتظار الاعتماد",returned:"معاد للتعديل",approved:"معتمد"};
 const D_STATUS = {new:"لم يبدأ",in_progress:"قيد التنفيذ",done:"منفّذ",cancelled:"ملغى"};
-const ROLES = {admin:"منسق مجلس القسم",supervisor:"رئيس لجنة",viewer:"اطلاع (رئيس القسم)"};
+const ROLES = {admin:"منسق مجلس القسم",head:"رئيس القسم (الاعتماد)",supervisor:"رئيس لجنة",viewer:"اطلاع فقط"};
 const ATT = {present:"حاضر",absent:"غائب",excused:"معتذر"};
 const MODES = ["حضوري","عن بُعد","مدمج"];
 
@@ -504,7 +504,7 @@ const LocalStore = {
       return id;
     };
     const admin = await mk("osama","د. أسامة رزق فضل شاهين","admin","Demo@1448",[]);
-    await mk("head","د. عبد الله بن سودي العنزي","viewer","Demo@1448",[]);
+    await mk("head","د. عبد الله بن سودي العنزي","head","Demo@1448",[]);
     const hamdi = await mk("hamdi","د. الهادي الحامدي","supervisor","Demo@1448",["ACA","SCH","CUR","ABT","MCS"]);
     const cur = UNITS_SEED.find(u=>u.id==="CUR");
     const m1 = {id:uuid(),unit_id:"CUR",year:"1448",semester:"الفصل الأول",seq:1,ref:"CUR-1448-01",meeting_date:"2026-09-14",start_time:"11:00",end_time:"12:00",place:"قاعة اجتماعات القسم",mode:"حضوري",
@@ -684,7 +684,7 @@ function render(){
 /* ---------------- login ---------------- */
 function renderLogin(){
   $("#app").innerHTML = `
-  ${Store.mode==="demo"?`<div class="demo-bar">وضع تجريبي: البيانات محفوظة في هذا المتصفح فقط. حسابات التجربة: osama (منسق المجلس) و hamdi (رئيس لجنة) و head (رئيس القسم - اطلاع)، وكلمة المرور للجميع Demo@1448</div>`:""}
+  ${Store.mode==="demo"?`<div class="demo-bar">وضع تجريبي: البيانات محفوظة في هذا المتصفح فقط. حسابات التجربة: osama (منسق المجلس) و hamdi (رئيس لجنة) و head (رئيس القسم - الاعتماد)، وكلمة المرور للجميع Demo@1448</div>`:""}
   <div class="login-bg"><div class="lw">
     <div class="ll">
       <div class="z">
@@ -734,7 +734,7 @@ async function logout(){ quranClose(); await Store.signOut(); S.user=null; S.vie
 /* ---------------- shell ---------------- */
 function initials(n){ const w=String(n||"").replace(/^(أ\.د\.|أ\.?\s?د\.?|د\.|أ\.)\s*/,"").trim().split(/\s+/); return ((w[0]||"")[0]||"")+((w[1]||"")[0]||""); }
 function shell(content,title,crumb,route){
-  const pend = isAdmin()? S.minutes.filter(m=>m.status==="submitted").length : 0;
+  const pend = (isAdmin()||isHead())? S.minutes.filter(m=>m.status==="submitted").length : 0;
   const lateN = S.decisions.filter(d=>isLate(d) && (S.user.role!=="supervisor"||myUnits().includes(d.unit_id))).length;
   const returned = S.minutes.filter(m=>m.status==="returned" && myUnits().includes(m.unit_id)).length;
   const yrs=[...new Set([S.settings.year||"1448", ...S.minutes.map(m=>m.year)])].sort().reverse();
@@ -763,10 +763,10 @@ function shell(content,title,crumb,route){
         <a href="#/minutes" class="${route==="minutes"||route==="minute"?"on":""}"><span>${icon("file")}المحاضر</span>${pend?`<span class="badge p">${pend}</span>`:""}</a>
         <a href="#/archive" class="${route==="archive"?"on":""}"><span>${icon("archive")}أرشيف المحاضر</span>${S.archive.length?`<span class="hint">${S.archive.length}</span>`:""}</a>
         <a href="#/decisions" class="${route==="decisions"?"on":""}"><span>${icon("check")}متابعة القرارات</span>${lateN?`<span class="badge">${lateN}</span>`:""}</a>
-        <a href="#/stats" class="${route==="stats"?"on":""}"><span>${icon("chart")}${isViewer()?"النتائج والمؤشرات":isAdmin()?"الإحصائيات والمؤشرات":"إدخال الإحصائيات"}</span>${isAdmin()&&S.reports.filter(r=>r.status==="submitted").length?`<span class="badge p">${S.reports.filter(r=>r.status==="submitted").length}</span>`:""}${!isAdmin()&&!isViewer()&&S.reports.filter(r=>r.status==="returned"&&myUnits().includes(r.unit_id)).length?`<span class="badge">${S.reports.filter(r=>r.status==="returned"&&myUnits().includes(r.unit_id)).length}</span>`:""}</a>
+        <a href="#/stats" class="${route==="stats"?"on":""}"><span>${icon("chart")}${isViewer()?"النتائج والمؤشرات":(isAdmin()||isHead())?"الإحصائيات والمؤشرات":"إدخال الإحصائيات"}</span>${(isAdmin()||isHead())&&S.reports.filter(r=>r.status==="submitted").length?`<span class="badge p">${S.reports.filter(r=>r.status==="submitted").length}</span>`:""}${!isAdmin()&&!isViewer()&&S.reports.filter(r=>r.status==="returned"&&myUnits().includes(r.unit_id)).length?`<span class="badge">${S.reports.filter(r=>r.status==="returned"&&myUnits().includes(r.unit_id)).length}</span>`:""}</a>
         ${myU.length?`<div class="grp">لجاني</div>`+myU.map(u=>`<a href="#/unit/${u.id}">${esc(u.name)}</a>`).join(""):""}
         ${isAdmin()?`<div class="grp">الإدارة</div><a href="#/users" class="${route==="users"?"on":""}"><span>${icon("users")}المستخدمون والصلاحيات</span></a><a href="#/settings" class="${route==="settings"?"on":""}"><span>${icon("gear")}الإعدادات واللجان</span></a>`:""}
-        <a class="quran-link" href="#" data-act="quran"><span class="q-ic">🕋</span><span class="q-tx"><b>قناة القرآن الكريم</b><small><i class="live-dot"></i>اضغط لمشاهدة البث المباشر</small></span></a>
+        ${(isAdmin()||S.settings.quran_members!=="off")?`<a class="quran-link" href="#" data-act="quran"><span class="q-ic">🕋</span><span class="q-tx"><b>قناة القرآن الكريم</b><small><i class="live-dot"></i>${isAdmin()&&S.settings.quran_members==="off"?"مخفي عن الأعضاء":"اضغط لمشاهدة البث المباشر"}</small></span></a>`:""}
         <div class="grp">الحساب</div>
         <a href="#" data-act="chpw"><span>${icon("key")}تغيير كلمة المرور</span></a>
       </nav>
@@ -812,7 +812,7 @@ function viewHome(){
       ${inb.length?`<p class="hint" style="margin-bottom:0">من محرر محضر الجلسة اضغط «توصيات اللجان الواردة» لإدراجها موضوعاتٍ في جدول الأعمال.</p>`:""}</div>` : "";
   return {title:"لوحة المتابعة", html: dashboard(units,sums) + inboxP + orgChart(sums) + `
     <div class="grid2">
-      <div class="panel"><div class="panel-head"><h3>${isAdmin()?"بانتظار اعتمادك":"بانتظار الاعتماد"}</h3><a href="#/minutes" class="hint">كل المحاضر</a></div>
+      <div class="panel"><div class="panel-head"><h3>${isHead()?"بانتظار اعتمادك":"بانتظار اعتماد رئيس القسم"}</h3><a href="#/minutes" class="hint">كل المحاضر</a></div>
         ${pending.length? pending.map(m=>minuteRow(m)).join("") : `<div class="empty">لا توجد محاضر مرفوعة للاعتماد.</div>`}${S.reports.filter(r=>r.status==="submitted").map(r=>`<div class="list-row"><div><a class="t1" href="#/unit/${r.unit_id}/stats">${esc(unitById(r.unit_id)?.name)} · إحصائيات ${esc(r.semester)}</a><div class="t2">${r.year}هـ</div></div><span class="chip c-submitted">إحصائيات للاعتماد</span></div>`).join("")}</div>
       <div class="panel"><div class="panel-head"><h3>قرارات تجاوزت موعدها</h3><a href="#/decisions?late=1" class="hint">متابعة القرارات</a></div>
         ${late.length? late.slice(0,8).map(decRow).join("") : `<div class="empty">كل القرارات ضمن مواعيدها.</div>`}</div>
@@ -959,7 +959,7 @@ function viewEditor(id,unitId){
     <button type="button" class="btn" data-act="additem">إضافة بند</button>
     <div class="sticky-actions">
       <button type="button" class="btn" data-save="draft">حفظ كمسودة</button>
-      ${`<button type="button" class="btn ok" data-save="approved">حفظ واعتماد</button>`}
+      <button type="button" class="btn ok" data-save="submitted">حفظ ورفع لرئيس القسم</button>
       <a class="btn" href="${d.id?"#/minute/"+d.id:"#/unit/"+u.id+"/minutes"}" data-act="canceled">إلغاء</a>
     </div></form>`;
   return {title:d.id?`تعديل المحضر رقم ${d.seq}`:"محضر جديد", crumb:esc(u.name), html};
@@ -1046,7 +1046,7 @@ async function saveMinute(status,btn,extra){
     await Store.removeWhere("decisions","minute_id",id,decs.map(x=>x.id));
     await Store.upsert("decisions",decs);
     await loadAll(); S.draft=null;
-    toast(status==="draft"?"حُفظت المسودة":status==="approved"?"حُفظ المحضر واعتُمد":"رُفع المحضر للاعتماد");
+    toast(status==="draft"?"حُفظت المسودة":status==="approved"?"حُفظ المحضر واعتُمد":"رُفع المحضر لرئيس القسم للاعتماد");
     go("#/minute/"+id);
   }catch(e){ toast("تعذّر الحفظ: "+e.message); btn.disabled=false; }
 }
@@ -1073,21 +1073,22 @@ function minuteDoc(m){
       ${it.discussion?`<div style="margin:6px 0"><b>المناقشة:</b> ${renderRich(it.discussion)}</div>`:""}
       ${dd.length?`<table><thead><tr><th style="width:36px">م</th><th>القرار / التوصية</th><th style="width:170px">المسؤول</th><th style="width:100px">موعد التنفيذ</th></tr></thead><tbody>${dd.map((x,k)=>`<tr><td>${k+1}</td><td>${esc(x.text)}${x.to_council?`<div style="font-size:12px;color:#6B3FA0">(تُرفع لمجلس القسم)</div>`:""}</td><td>${esc(x.owner||"—")}</td><td>${fmtHs(x.due_date)}</td></tr>`).join("")}</tbody></table>`:""}`; }).join("")}
     <p style="margin-top:18px">وانتهى الاجتماع في تمام الساعة ${esc(m.end_time||"—")}، والله الموفق.</p>
-    <div class="sig ${u.id==="DC"?"":"sig1"}">${u.id==="DC"?`<div>منسق مجلس القسم<br><b>${esc(deptCoord())}</b><br><div style="margin-top:14px;color:#888">التوقيع: ..................</div></div>`:""}<div>${headTitle(u)} ${kindWord(u)}<br><b>${esc(supervisorOf(u))}</b><br>${m.status==="approved"?`<span class="stamp">معتمد</span>${m.approval_no?`<div style="font-size:12.5px;line-height:1.7;margin-top:4px">بالمعاملة رقم <b dir="ltr">${esc(m.approval_no)}</b><br>وتاريخ ${fmtH(m.approval_date)}</div>`:""}`:`<span class="stamp wm">${M_STATUS[m.status]}</span>`}</div></div>
+    <div class="sig">${u.id==="DC"?`<div>منسق مجلس القسم<br><b>${esc(deptCoord())}</b><br><div style="margin-top:14px;color:#888">التوقيع: ..................</div></div>`:`<div>${headTitle(u)} ${kindWord(u)}<br><b>${esc(supervisorOf(u))}</b><br><div style="margin-top:14px;color:#888">التوقيع: ..................</div></div>`}<div>${u.id==="DC"?"رئيس المجلس":"يُعتمد، رئيس القسم"}<br><b>${esc(deptHead())}</b><br>${m.status==="approved"?`<span class="stamp">معتمد</span>${m.approval_no?`<div style="font-size:12.5px;line-height:1.7;margin-top:4px">بالمعاملة رقم <b dir="ltr">${esc(m.approval_no)}</b><br>وتاريخ ${fmtH(m.approval_date)}</div>`:""}`:`<span class="stamp wm">${M_STATUS[m.status]}</span>`}</div></div>
   </article>`;
 }
 function viewMinute(id){
   const m=S.minutes.find(x=>x.id===id); if(!m) return {title:"غير موجود",html:`<div class="empty">المحضر غير موجود أو لا تملك صلاحية عرضه.</div>`};
   const u=unitById(m.unit_id); const w=canWrite(m.unit_id);
-  const canEdit = w && (["draft","returned"].includes(m.status) || isAdmin());
+  const canEdit = w && (["draft","returned"].includes(m.status) || (isAdmin() && m.status==="submitted"));
   return {title:`المحضر رقم ${m.seq}`, crumb:`<a href="#/unit/${u.id}/minutes">${esc(u.name)}</a>`, html:`
     ${m.status==="returned"&&m.review_note?`<div class="note-box"><b>معاد للتعديل:</b> ${esc(m.review_note)}</div>`:""}
     <div class="doc-actions">
       <button class="btn" data-act="print">طباعة / حفظ PDF</button>
       ${canEdit?`<a class="btn" href="#/minute/${m.id}/edit">تعديل</a>`:""}
-      ${w && ["draft","returned","submitted"].includes(m.status) && !isAdmin()?`<button class="btn ok" data-mstatus="approved">اعتماد المحضر</button>`:""}${w && m.status==="submitted" && !isAdmin()?`<button class="btn" data-act="withdraw">سحب المحضر للتعديل</button>`:""}
-      ${isAdmin() && m.status!=="approved"?`<button class="btn ok" data-mstatus="approved">اعتماد المحضر</button><button class="btn" data-act="return">إعادة للتعديل</button>`:""}
-      ${isAdmin() && m.status==="approved"?`<button class="btn" data-act="editapproval">بيانات الاعتماد</button><button class="btn" data-mstatus="draft">إلغاء الاعتماد</button>`:""}
+      ${w && ["draft","returned"].includes(m.status)?`<button class="btn primary" data-mstatus="submitted">رفع لرئيس القسم للاعتماد</button>`:""}${w && m.status==="submitted" && !isAdmin()?`<button class="btn" data-act="withdraw">سحب المحضر للتعديل</button>`:""}
+      ${isHead() && m.status==="submitted"?`<button class="btn ok" data-mstatus="approved">اعتماد المحضر</button>`:""}${(isHead()||isAdmin()) && m.status==="submitted"?`<button class="btn" data-act="return">إعادة للتعديل</button>`:""}
+      ${isHead() && m.status==="approved"?`<button class="btn" data-act="editapproval">بيانات الاعتماد</button><button class="btn" data-mstatus="draft">إلغاء الاعتماد</button>`:""}
+      ${!isHead() && m.status==="submitted"?`<span class="chip c-submitted" style="align-self:center">بانتظار اعتماد رئيس القسم</span>`:""}
       ${(isAdmin() || (w && ["draft","returned"].includes(m.status)))?`<button class="btn danger" data-act="delminute">حذف</button>`:""}
     </div>${minuteDoc(m)}`};
 }
@@ -1095,7 +1096,7 @@ async function setMinuteStatus(id,status,note,extra){
   const patch={status,review_note:note??null,...(extra||{})};
   if(Store.mode==="demo"&&status==="approved"){ patch.approved_by=S.user.id; patch.approved_at=new Date().toISOString(); }
   if(status==="draft"){ patch.approved_by=null; patch.approved_at=null; patch.approval_no=null; patch.approval_date=null; }
-  try{ await Store.update("minutes",id,patch); await loadAll(); toast({submitted:"رُفع المحضر للاعتماد",approved:"اعتُمد المحضر",returned:"أُعيد المحضر للتعديل",draft:isAdmin()?"أُلغي الاعتماد":"سُحب المحضر وأصبح مسودة"}[status]); render(); }
+  try{ await Store.update("minutes",id,patch); await loadAll(); toast({submitted:"رُفع المحضر للاعتماد",approved:"اعتُمد المحضر",returned:"أُعيد المحضر للتعديل",draft:isHead()?"أُلغي الاعتماد":"سُحب المحضر وأصبح مسودة"}[status]); render(); }
   catch(e){ toast("تعذّر التنفيذ: "+e.message); }
 }
 
@@ -1180,6 +1181,7 @@ function viewSettings(){
         <label class="f" style="margin:0"><span>مكان الاجتماع الافتراضي</span><input class="inp" name="place" value="${esc(S.settings.place||"قاعة اجتماعات القسم")}" style="width:200px"></label>
         <button class="btn primary">حفظ</button></div></form>
     <form class="panel" id="qsetf"><h3>بث قناة القرآن الكريم في القائمة الجانبية</h3>
+      <label class="tc-chk" style="margin:0 0 12px;font-size:14px"><input type="checkbox" name="members" ${S.settings.quran_members!=="off"?"checked":""}> إظهار رابط قناة القرآن الكريم لجميع الأعضاء <span class="hint" style="font-weight:400">(يظهر لك دائمًا بصفتك منسق المجلس)</span></label>
       <p class="hint" style="margin-top:-6px">إذا كان البث محجوبًا على شبكة الجامعة، جرّب مصدرًا آخر من الشبكة نفسها واحفظ الذي يعمل. يدعم المشغل روابط البث المباشر (m3u8) وروابط يوتيوب وصفحات البث.</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">${QURAN_SOURCES.map(x=>`<button type="button" class="btn sm" data-qsrc="${esc(x.u)}">${esc(x.t)}</button>`).join("")}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input class="inp" name="src" dir="ltr" style="flex:1;min-width:260px" value="${esc(quranSrc())}"><button type="button" class="btn" data-qtest>تجربة</button><button class="btn primary">حفظ</button></div></form>
@@ -1205,7 +1207,7 @@ function unitModal(u){
 /* ---------------- semester statistics reports ---------------- */
 const BRANCHES=[["M","الطلاب"],["F","الطالبات"]];
 const R_STATUS={none:"لم يبدأ",draft:"مسودة",submitted:"بانتظار الاعتماد",returned:"معاد للتعديل",approved:"معتمد"};
-const isViewer=()=>S.user.role==="viewer";
+const isViewer=()=>S.user.role==="viewer"; const isHead=()=>S.user?.role==="head";
 const reportOf=(uid,sem)=>S.reports.find(r=>r.unit_id===uid&&r.year===S.view.year&&r.semester===(sem||S.view.semester));
 const repStatus=(uid,sem)=>reportOf(uid,sem)?.status||"none";
 const byBranch=u=>(u.stats||[]).some(d=>d.by==="branch");
@@ -1232,7 +1234,7 @@ function statsForm(u,editable){
 }
 function unitStatsPanel(u){
   const s=unitSummary(u); const rep=reportOf(u.id); const st=rep?.status||"none";
-  const sup=canWrite(u.id)&&!isAdmin(); const editable=isAdmin()||(sup&&["none","draft","returned"].includes(st));
+  const sup=canWrite(u.id)&&!isAdmin(); const editable=(isAdmin()&&st!=="approved")||(sup&&["none","draft","returned"].includes(st));
   const auto=`<div class="panel"><div class="panel-head"><h3>مؤشرات تلقائية من المحاضر · ${esc(S.view.semester)}</h3></div>
     <div class="stat-grid">
       <div class="stat auto"><div class="l">محاضر الفصل (المعتمد منها)</div><div class="v">${s.minutes} <span class="hint">(${s.approved})</span></div></div>
@@ -1243,12 +1245,14 @@ function unitStatsPanel(u){
   if(!(u.stats||[]).length) return auto;
   if(isViewer()&&st!=="approved") return auto+`<div class="panel"><div class="empty">لم تُعتمد إحصائيات ${kindWord(u)} ${esc(li(S.view.semester))} ${S.view.year}هـ بعد.</div></div>`;
   const files=rep?.files||[];
-  const actions = isViewer()? "" : isAdmin()
-    ? `<button type="button" class="btn" data-rep="save">حفظ</button>${st==="submitted"||st==="returned"||st==="draft"?`<button type="button" class="btn ok" data-rep="approve">اعتماد الإحصائيات</button>`:""}${st==="submitted"?`<button type="button" class="btn" data-rep="return">إعادة للتعديل</button>`:""}${st==="approved"?`<button type="button" class="btn" data-rep="unapprove">إلغاء الاعتماد</button>`:""}`
+  const actions = isViewer()? "" : isHead()
+    ? `${st==="submitted"?`<button type="button" class="btn ok" data-rep="approve">اعتماد الإحصائيات</button><button type="button" class="btn" data-rep="return">إعادة للتعديل</button>`:""}${st==="approved"?`<button type="button" class="btn" data-rep="unapprove">إلغاء الاعتماد</button>`:""}`
+    : isAdmin()
+    ? (st==="approved"? "" : `<button type="button" class="btn" data-rep="save">حفظ</button>${st!=="submitted"?`<button type="button" class="btn primary" data-rep="submit">رفع لرئيس القسم</button>`:`<button type="button" class="btn" data-rep="return">إعادة للتعديل</button>`}`)
     : editable? `<button type="button" class="btn" data-rep="save">حفظ مسودة</button><button type="button" class="btn primary" data-rep="submit">رفع للاعتماد</button>` : (sup&&st==="submitted"? `<button type="button" class="btn" data-rep="withdraw">سحب الإحصائيات للتعديل</button>` : "");
   return auto+`<form class="panel" id="statf" data-unit="${u.id}" onsubmit="return false">
     <div class="panel-head"><h3>${isViewer()?"النتائج المعتمدة":"الإحصائيات والمؤشرات المطلوبة"} · ${esc(S.view.semester)} ${S.view.year}هـ</h3><span class="chip c-${st==="none"?"draft":st}">${R_STATUS[st]}</span></div>
-    ${st==="returned"&&rep?.review_note?`<div class="note-box" style="max-width:none">ملاحظة منسق مجلس القسم: ${esc(rep.review_note)}</div>`:""}
+    ${st==="returned"&&rep?.review_note?`<div class="note-box" style="max-width:none">ملاحظة المراجعة: ${esc(rep.review_note)}</div>`:""}
     ${byBranch(u)?`<p class="hint" style="margin-top:0">تُدخل الإحصائيات لكل شطر، ويُحسب الإجمالي تلقائيًا (مجموع للأعداد ومتوسط للنسب).</p>`:""}
     ${statsForm(u,editable)}
     <div class="st-gt">أبرز الإنجازات ونتائجها وشواهدها</div>
@@ -1323,7 +1327,7 @@ function resultCard(u){
 }
 function viewStats(){
   const units=visibleUnits().filter(u=>(u.stats||[]).length);
-  if(!isAdmin()&&!isViewer()){
+  if(!isAdmin()&&!isViewer()&&!isHead()){
     if(!units.length) return {title:"إدخال الإحصائيات",html:`<div class="panel"><div class="empty">لا توجد إحصائيات مطلوبة من وحداتك.</div></div>`};
     const q=new URLSearchParams(location.hash.split("?")[1]||""); const sel=units.find(u=>u.id===q.get("unit"))||units[0];
     const chips=units.length>1?`<div class="unit-chips">${units.map(u=>{ const st=repStatus(u.id); return `<a href="#/stats?unit=${u.id}" class="${u.id===sel.id?"on":""}">${esc(u.name)} <span class="chip c-${st==="none"?"draft":st}">${R_STATUS[st]}</span></a>`; }).join("")}</div>`:"";
@@ -1503,7 +1507,7 @@ function dashboard(units,sums){
   const idle=units.filter(u=>!sums[u.id].minutes).length;
   const kpis=`<div class="kcs">
     ${kpiCard("file",DC.green,semMin.length,`محاضر ${esc(sem)}`,`${semMin.filter(m=>m.status==="approved").length} معتمد منها`,"#/minutes")}
-    ${kpiCard("clock",DC.blue,pendM+pendR,"بانتظار الاعتماد",`${pendM} محضر · ${pendR} إحصائيات`,isAdmin()?"#/minutes?status=submitted":"")}
+    ${kpiCard("clock",DC.blue,pendM+pendR,"بانتظار الاعتماد",`${pendM} محضر · ${pendR} إحصائيات`,(isAdmin()||isHead())?"#/minutes?status=submitted":"")}
     ${kpiCard("alert",DC.red,late,"قرارات متأخرة","تجاوزت موعد التنفيذ","#/decisions?late=1")}
     ${kpiCard("pause",DC.orange,`${idle}<small> / ${units.length}</small>`,"جهات لم تجتمع",`خلال ${esc(sem)}`,"#/units")}</div>`;
   const ms={draft:0,submitted:0,returned:0,approved:0}; mins.forEach(m=>ms[m.status]++);
@@ -1540,7 +1544,7 @@ function dashboard(units,sums){
     const covP=Math.round(units.reduce((x,u)=>x+sums[u.id].coverage,0)/(units.length||1));
     const kp=`<div class="kcs">
       ${kpiCard("file",DC.green,semMin.length,`محاضر ${esc(sem)}`,`${semMin.filter(m=>m.status==="approved").length} معتمد منها`,"#/minutes")}
-      ${kpiCard("pause",DC.orange,drafts,"مسودات لم تُعتمد","أكملها واعتمدها","#/minutes?status=draft")}
+      ${kpiCard("pause",DC.orange,drafts,"مسودات لم تُرفع","أكملها وارفعها لرئيس القسم","#/minutes?status=draft")}
       ${kpiCard("alert",DC.red,late,"قرارات متأخرة","تجاوزت موعد التنفيذ","#/decisions?late=1")}
       ${kpiCard("grid",pctColor(covP),covP+"%","تغطية المهام",`في محاضر ${yr}هـ`)}</div>`;
     const repRows=su.map(u=>{ const st=repStatus(u.id); const req=(u.stats||[]).length; const filled=(u.stats||[]).filter(dd=>indTotal(u,dd)!=null).length;
@@ -1744,7 +1748,7 @@ function normApproval(v,year){ v=String(v||"").replace(/\s/g,""); if(!v) return 
 function approvalModal(cur,onOk){
   cur=cur||{};
   modal(`<h3>بيانات اعتماد المحضر</h3><form id="apf">
-    <p class="hint" style="margin-top:0">أدخل رقم المعاملة أو القرار الذي اعتُمد به المحضر إن وُجد، وتاريخ الاعتماد. بعد الاعتماد لا يمكن تعديل المحضر إلا من منسق مجلس القسم.</p>
+    <p class="hint" style="margin-top:0">أدخل رقم المعاملة أو القرار الذي اعتُمد به المحضر إن وُجد، وتاريخ الاعتماد. بعد الاعتماد لا يمكن تعديل المحضر إلا بإلغاء الاعتماد.</p>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 12px">
       <label class="f"><span>رقم الاعتماد (اختياري)</span><input class="inp" name="n" value="${esc(cur.approval_no||"")}" dir="ltr" placeholder="مثال: 125/48"></label>
       <div class="f"><span class="flabel">تاريخ الاعتماد (هجري)</span>${hijriInput('name="d"',cur.approval_date||todayISO())}</div></div>
@@ -2220,8 +2224,9 @@ function afterRender(){
     if(t.dataset.decStatus){ try{ await Store.update("decisions",t.dataset.decStatus,{status:t.value,updated_at:new Date().toISOString()}); await loadAll(); toast("حُدّثت حالة القرار"); render(); }catch(err){ toast(err.message); } }
     if(t.dataset.decNote){ try{ await Store.update("decisions",t.dataset.decNote,{progress_note:t.value,updated_at:new Date().toISOString()}); const d=S.decisions.find(x=>x.id===t.dataset.decNote); if(d) d.progress_note=t.value; toast("حُفظت الملاحظة"); }catch(err){ toast(err.message); } }
   };
-    const qf=$("#qsetf"); if(qf){ qf.onclick=e=>{ const b=e.target.closest("button"); if(!b) return; if(b.dataset.qsrc){ qf.src.value=b.dataset.qsrc; } if(b.dataset.qtest!==undefined){ S.settings.quran_src_tmp=qf.src.value; const old=S.settings.quran_src; S.settings.quran_src=qf.src.value.trim(); quranOpen(); S.settings.quran_src=old; } };
-    qf.onsubmit=async e=>{ e.preventDefault(); try{ await Store.upsert("settings",[{key:"quran_src",value:qf.src.value.trim()}],["key"]); await loadAll(); toast("حُفظ مصدر البث"); }catch(err){ toast(err.message); } }; }
+    const qf=$("#qsetf"); if(qf){ qf.members.onchange=async()=>{ try{ await Store.upsert("settings",[{key:"quran_members",value:qf.members.checked?"on":"off"}],["key"]); await loadAll(); render(); toast(qf.members.checked?"أصبح رابط القرآن الكريم ظاهرًا لجميع الأعضاء":"أُخفي رابط القرآن الكريم عن الأعضاء"); }catch(err){ toast(err.message); } };
+    qf.onclick=e=>{ const b=e.target.closest("button"); if(!b) return; if(b.dataset.qsrc){ qf.src.value=b.dataset.qsrc; } if(b.dataset.qtest!==undefined){ S.settings.quran_src_tmp=qf.src.value; const old=S.settings.quran_src; S.settings.quran_src=qf.src.value.trim(); quranOpen(); S.settings.quran_src=old; } };
+    qf.onsubmit=async e=>{ e.preventDefault(); try{ await Store.upsert("settings",[{key:"quran_src",value:qf.src.value.trim()},{key:"quran_members",value:qf.members.checked?"on":"off"}],["key"]); await loadAll(); render(); toast(qf.members.checked?"حُفظ: الرابط ظاهر لجميع الأعضاء":"حُفظ: الرابط مخفي عن الأعضاء"); }catch(err){ toast(err.message); } }; }
   const st=$("#setf"); if(st) st.onsubmit=async e=>{ e.preventDefault(); try{ await Store.upsert("settings",[{key:"year",value:st.year.value.trim()},{key:"semester",value:st.semester.value},{key:"head",value:st.head.value.trim()},{key:"coordinator",value:st.coordinator.value.trim()},{key:"place",value:st.place.value.trim()}],["key"]); await loadAll(); S.view.year=S.settings.year; S.view.semester=S.settings.semester; toast("حُفظت الإعدادات"); render(); }catch(err){ toast(err.message); } };
   bindEditor();
   bindArchive();
