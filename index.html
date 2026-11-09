@@ -424,6 +424,12 @@ html{scrollbar-color:#8B6BC0 #EFE9F7}
 .src-note{font-size:12.5px;background:var(--jouf-soft);color:var(--jouf-deep);border-radius:8px;padding:5px 10px;margin:0 0 10px;display:inline-block}
 .inbox-p{border-inline-start:4px solid var(--jouf)}
 .dc-node{min-width:min(420px,100%)}
+.q-who{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:0 0 14px}
+.q-who-h{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;margin-bottom:10px}.q-who-h .hint{flex-basis:100%}
+.q-who-a{display:flex;gap:6px;align-items:center;margin-inline-start:auto;flex-wrap:wrap}
+.q-who-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:2px 14px;max-height:340px;overflow:auto}
+.q-u{margin:0;padding:5px 0;font-weight:500;color:var(--ink)}.q-u small{font-weight:400}.q-off{opacity:.5}
+
 </style>
 </head>
 <body>
@@ -766,7 +772,7 @@ function shell(content,title,crumb,route){
         <a href="#/stats" class="${route==="stats"?"on":""}"><span>${icon("chart")}${isViewer()?"النتائج والمؤشرات":(isAdmin()||isHead())?"الإحصائيات والمؤشرات":"إدخال الإحصائيات"}</span>${(isAdmin()||isHead())&&S.reports.filter(r=>r.status==="submitted").length?`<span class="badge p">${S.reports.filter(r=>r.status==="submitted").length}</span>`:""}${!isAdmin()&&!isViewer()&&S.reports.filter(r=>r.status==="returned"&&myUnits().includes(r.unit_id)).length?`<span class="badge">${S.reports.filter(r=>r.status==="returned"&&myUnits().includes(r.unit_id)).length}</span>`:""}</a>
         ${myU.length?`<div class="grp">لجاني</div>`+myU.map(u=>`<a href="#/unit/${u.id}">${esc(u.name)}</a>`).join(""):""}
         ${isAdmin()?`<div class="grp">الإدارة</div><a href="#/users" class="${route==="users"?"on":""}"><span>${icon("users")}المستخدمون والصلاحيات</span></a><a href="#/settings" class="${route==="settings"?"on":""}"><span>${icon("gear")}الإعدادات واللجان</span></a>`:""}
-        ${(isAdmin()||S.settings.quran_members!=="off")?`<a class="quran-link" href="#" data-act="quran"><span class="q-ic">🕋</span><span class="q-tx"><b>قناة القرآن الكريم</b><small><i class="live-dot"></i>${isAdmin()&&S.settings.quran_members==="off"?"مخفي عن الأعضاء":"اضغط لمشاهدة البث المباشر"}</small></span></a>`:""}
+        ${showQuran()?`<a class="quran-link" href="#" data-act="quran"><span class="q-ic">🕋</span><span class="q-tx"><b>قناة القرآن الكريم</b><small><i class="live-dot"></i>${isAdmin()&&quranHidden().length?`مخفي عن ${quranHidden().length} من الأعضاء`:"اضغط لمشاهدة البث المباشر"}</small></span></a>`:""}
         <div class="grp">الحساب</div>
         <a href="#" data-act="chpw"><span>${icon("key")}تغيير كلمة المرور</span></a>
       </nav>
@@ -1181,7 +1187,10 @@ function viewSettings(){
         <label class="f" style="margin:0"><span>مكان الاجتماع الافتراضي</span><input class="inp" name="place" value="${esc(S.settings.place||"قاعة اجتماعات القسم")}" style="width:200px"></label>
         <button class="btn primary">حفظ</button></div></form>
     <form class="panel" id="qsetf"><h3>بث قناة القرآن الكريم في القائمة الجانبية</h3>
-      <label class="tc-chk" style="margin:0 0 12px;font-size:14px"><input type="checkbox" name="members" ${S.settings.quran_members!=="off"?"checked":""}> إظهار رابط قناة القرآن الكريم لجميع الأعضاء <span class="hint" style="font-weight:400">(يظهر لك دائمًا بصفتك منسق المجلس)</span></label>
+      ${(()=>{ const hid=quranHidden(); const ps=S.profiles.filter(p=>p.role!=="admin").sort((a,b)=>((a.role==="head")===(b.role==="head")?0:(a.role==="head"?-1:1))||a.full_name.localeCompare(b.full_name,"ar"));
+        return `<div class="q-who"><div class="q-who-h"><b>ظهور الرابط للأعضاء</b><span class="q-who-a"><button type="button" class="btn sm" data-qall="show">إظهار للجميع</button><button type="button" class="btn sm" data-qall="hide">إخفاء عن الجميع</button><span class="chip c-draft" id="q-cnt">يظهر لـ ${ps.filter(p=>!hid.includes(p.id)).length} من ${ps.length}</span></span>
+          <span class="hint">ضع علامة أمام من يظهر له الرابط، وأزلها عمّن تريد إخفاءه عنه. يُحفظ التغيير فورًا، والرابط ظاهر لك دائمًا.</span></div>
+          <div class="q-who-g">${ps.map(p=>`<label class="tc-chk q-u ${p.is_active===false?"q-off":""}"><input type="checkbox" data-qu="${p.id}" data-qn="${esc(p.full_name)}" ${hid.includes(p.id)?"":"checked"}><span>${esc(p.full_name)} <small class="hint" dir="ltr">${esc(p.username)}</small></span></label>`).join("")||'<span class="hint">لا توجد حسابات أعضاء بعد.</span>'}</div></div>`; })()}
       <p class="hint" style="margin-top:-6px">إذا كان البث محجوبًا على شبكة الجامعة، جرّب مصدرًا آخر من الشبكة نفسها واحفظ الذي يعمل. يدعم المشغل روابط البث المباشر (m3u8) وروابط يوتيوب وصفحات البث.</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">${QURAN_SOURCES.map(x=>`<button type="button" class="btn sm" data-qsrc="${esc(x.u)}">${esc(x.t)}</button>`).join("")}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input class="inp" name="src" dir="ltr" style="flex:1;min-width:260px" value="${esc(quranSrc())}"><button type="button" class="btn" data-qtest>تجربة</button><button class="btn primary">حفظ</button></div></form>
@@ -1616,6 +1625,8 @@ const QURAN_SOURCES=[
   {t:"البث الرسمي لقناة القرآن الكريم (HLS)",u:"https://win.holol.com/live/quran/playlist.m3u8"},
   {t:"صفحة البث على Makkah Live",u:"https://makkahlive.net/tvquran.aspx"}
 ];
+const quranHidden=()=>{ try{ const v=JSON.parse(S.settings.quran_hidden||"[]"); return Array.isArray(v)?v:[]; }catch(e){ return []; } };
+const showQuran=()=>isAdmin()||!quranHidden().includes(S.user?.id);
 const quranSrc=()=> (S.settings&&S.settings.quran_src) || QURAN_SOURCES[0].u;
 let qHls=null;
 function ytEmbed(u){ let m=u.match(/[?&]v=([\w-]{6,})/)||u.match(/youtu\.be\/([\w-]{6,})/)||u.match(/youtube\.com\/(?:live|embed)\/([\w-]{6,})/); if(m) return `https://www.youtube.com/embed/${m[1]}?autoplay=1&mute=1`; m=u.match(/channel\/(UC[\w-]+)/); if(m) return `https://www.youtube.com/embed/live_stream?channel=${m[1]}&autoplay=1&mute=1`; return null; }
@@ -2224,9 +2235,12 @@ function afterRender(){
     if(t.dataset.decStatus){ try{ await Store.update("decisions",t.dataset.decStatus,{status:t.value,updated_at:new Date().toISOString()}); await loadAll(); toast("حُدّثت حالة القرار"); render(); }catch(err){ toast(err.message); } }
     if(t.dataset.decNote){ try{ await Store.update("decisions",t.dataset.decNote,{progress_note:t.value,updated_at:new Date().toISOString()}); const d=S.decisions.find(x=>x.id===t.dataset.decNote); if(d) d.progress_note=t.value; toast("حُفظت الملاحظة"); }catch(err){ toast(err.message); } }
   };
-    const qf=$("#qsetf"); if(qf){ qf.members.onchange=async()=>{ try{ await Store.upsert("settings",[{key:"quran_members",value:qf.members.checked?"on":"off"}],["key"]); await loadAll(); render(); toast(qf.members.checked?"أصبح رابط القرآن الكريم ظاهرًا لجميع الأعضاء":"أُخفي رابط القرآن الكريم عن الأعضاء"); }catch(err){ toast(err.message); } };
-    qf.onclick=e=>{ const b=e.target.closest("button"); if(!b) return; if(b.dataset.qsrc){ qf.src.value=b.dataset.qsrc; } if(b.dataset.qtest!==undefined){ S.settings.quran_src_tmp=qf.src.value; const old=S.settings.quran_src; S.settings.quran_src=qf.src.value.trim(); quranOpen(); S.settings.quran_src=old; } };
-    qf.onsubmit=async e=>{ e.preventDefault(); try{ await Store.upsert("settings",[{key:"quran_src",value:qf.src.value.trim()},{key:"quran_members",value:qf.members.checked?"on":"off"}],["key"]); await loadAll(); render(); toast(qf.members.checked?"حُفظ: الرابط ظاهر لجميع الأعضاء":"حُفظ: الرابط مخفي عن الأعضاء"); }catch(err){ toast(err.message); } }; }
+    const qf=$("#qsetf"); if(qf){ const qSave=async(msg)=>{ const boxes=[...qf.querySelectorAll("[data-qu]")]; const hid=boxes.filter(x=>!x.checked).map(x=>x.dataset.qu);
+      try{ await Store.upsert("settings",[{key:"quran_hidden",value:JSON.stringify(hid)}],["key"]); S.settings.quran_hidden=JSON.stringify(hid); const c=$("#q-cnt"); if(c) c.textContent=`يظهر لـ ${boxes.length-hid.length} من ${boxes.length}`; toast(msg); }catch(err){ toast(err.message); } };
+    qf.onchange=e=>{ const x=e.target.closest("[data-qu]"); if(!x) return; qSave(x.checked?`سيظهر الرابط لـ ${x.dataset.qn}`:`أُخفي الرابط عن ${x.dataset.qn}`); };
+    qf.onclick=e=>{ const b=e.target.closest("button"); if(!b) return;
+      if(b.dataset.qall){ qf.querySelectorAll("[data-qu]").forEach(x=>x.checked=b.dataset.qall==="show"); return qSave(b.dataset.qall==="show"?"أصبح الرابط ظاهرًا لجميع الأعضاء":"أُخفي الرابط عن جميع الأعضاء"); } if(b.dataset.qsrc){ qf.src.value=b.dataset.qsrc; } if(b.dataset.qtest!==undefined){ S.settings.quran_src_tmp=qf.src.value; const old=S.settings.quran_src; S.settings.quran_src=qf.src.value.trim(); quranOpen(); S.settings.quran_src=old; } };
+    qf.onsubmit=async e=>{ e.preventDefault(); try{ await Store.upsert("settings",[{key:"quran_src",value:qf.src.value.trim()}],["key"]); await loadAll(); toast("حُفظ مصدر البث"); }catch(err){ toast(err.message); } }; }
   const st=$("#setf"); if(st) st.onsubmit=async e=>{ e.preventDefault(); try{ await Store.upsert("settings",[{key:"year",value:st.year.value.trim()},{key:"semester",value:st.semester.value},{key:"head",value:st.head.value.trim()},{key:"coordinator",value:st.coordinator.value.trim()},{key:"place",value:st.place.value.trim()}],["key"]); await loadAll(); S.view.year=S.settings.year; S.view.semester=S.settings.semester; toast("حُفظت الإعدادات"); render(); }catch(err){ toast(err.message); } };
   bindEditor();
   bindArchive();
